@@ -1,0 +1,55 @@
+# --- Python Basics ---
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.Python
+env/
+venv/
+.conda/
+.ipynb_checkpoints/
+
+# --- IDE & OS ---
+.vscode/
+.idea/
+.DS_Store
+
+# --- DATA (CRUCIAL FOR CHEMINFORMATICS) ---
+# Chặn tất cả các file dữ liệu nặng để không push lên Github
+*.csv
+*.tsv
+*.txt
+*.json
+*.xml
+*.sdf
+*.mol
+*.smi
+
+# Compressed files
+*.gz
+*.zip
+*.tar
+*.7z
+*.rar
+
+# Database files
+*.db
+*.sqlite
+*.sqlite3
+
+# Download incomplete
+*.crdownload
+
+# --- PROJECT SPECIFIC ---
+# Chặn các folder chứa data cụ thể
+m1_data/
+data/
+raw_data/
+processed_data/
+
+# BigQuery results (như trong tree của bạn)
+bq-results*
+
+# --- JUPYTER ---
+# Nếu bạn không muốn commit kết quả chạy notebook (optional)
+# *.ipynb
