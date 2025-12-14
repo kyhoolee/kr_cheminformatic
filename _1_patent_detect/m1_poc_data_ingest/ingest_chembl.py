@@ -85,6 +85,18 @@ def parse_args(argv: Optional[List[str]] = None) -> argparse.Namespace:
         action="store_true",
         help="Drop duplicate InChIKeys after cleaning.",
     )
+    parser.add_argument(
+        "--compute-inchikey",
+        action="store_true",
+        help="Compute InChIKey from the cleaned Mol when the source file is missing it. "
+        "If not set, rows without source InChIKey are skipped (faster).",
+    )
+    parser.add_argument(
+        "--error-report",
+        type=Path,
+        default=None,
+        help="Optional path to write a CSV of failed rows with error reasons.",
+    )
     return parser.parse_args(argv)
 
 
@@ -112,9 +124,11 @@ def process_dataframe(
     radius: int,
     n_bits: int,
     skip_fingerprints: bool,
+    compute_inchikey: bool,
 ) -> tuple[pd.DataFrame, PipelineStats]:
     stats = PipelineStats(total_rows=len(df))
     cleaned_records: List[Dict[str, object]] = []
+    error_records: List[Dict[str, object]] = []
 
     for row in tqdm(df.itertuples(index=False), total=len(df), desc="Processing"):
         smiles = getattr(row, "canonical_smiles", None)
@@ -131,8 +145,33 @@ def process_dataframe(
             stats.removed_by_salts += 1
             continue
 
-        canonical_smiles = prep.canonicalize_mol(mol)
-        inchikey = prep.mol_to_inchikey(mol) or raw_inchikey
+        try:
+            canonical_smiles = prep.canonicalize_mol(mol, raise_on_error=True)
+        except Exception as exc:
+            stats.invalid_smiles += 1
+            error_records.append(
+                {
+                    "chembl_id": chembl_id,
+                    "canonical_smiles": smiles,
+                    "error": f"canonicalize_failed: {exc}",
+                }
+            )
+            continue
+
+        inchikey = raw_inchikey
+        if not inchikey and compute_inchikey:
+            try:
+                inchikey = prep.mol_to_inchikey(mol)
+            except Exception as exc:
+                stats.missing_inchikey += 1
+                error_records.append(
+                    {
+                        "chembl_id": chembl_id,
+                        "canonical_smiles": canonical_smiles,
+                        "error": f"inchikey_failed: {exc}",
+                    }
+                )
+                continue
         if not inchikey:
             stats.missing_inchikey += 1
             continue
@@ -156,20 +195,31 @@ def process_dataframe(
         )
 
     cleaned_df = pd.DataFrame(cleaned_records)
-    return cleaned_df, stats
+    error_df = pd.DataFrame(error_records)
+    return cleaned_df, error_df, stats
 
 
 def main(argv: Optional[List[str]] = None) -> None:
     args = parse_args(argv)
+    # Silence RDKit deprecation chatter (e.g., MorganGenerator warnings).
+    try:
+        from rdkit import RDLogger
+
+        RDLogger.DisableLog("rdApp.warning")
+        RDLogger.DisableLog("rdApp.error")  # suppress kekulize noise; we handle failures explicitly
+    except Exception:
+        pass
+
     print(f"Loading data from {args.input} ...")
     raw_df = loader.read_chembl_chemreps(args.input, limit=args.limit)
     print(f"Loaded {len(raw_df):,} rows")
 
-    cleaned_df, stats = process_dataframe(
+    cleaned_df, error_df, stats = process_dataframe(
         raw_df,
         radius=args.radius,
         n_bits=args.n_bits,
         skip_fingerprints=args.skip_fingerprints,
+        compute_inchikey=args.compute_inchikey,
     )
 
     if args.dedupe and not cleaned_df.empty:
@@ -180,6 +230,9 @@ def main(argv: Optional[List[str]] = None) -> None:
 
     _save_dataframe(cleaned_df, args.output)
     print(f"Saved {len(cleaned_df):,} cleaned rows to {args.output}")
+    if args.error_report and not error_df.empty:
+        _save_dataframe(error_df, args.error_report)
+        print(f"Saved {len(error_df):,} error rows to {args.error_report}")
     print("Stats:", stats.summary())
 
 

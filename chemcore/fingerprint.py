@@ -30,13 +30,25 @@ def morgan_fingerprint(
 ):
     """Compute a Morgan/ECFP bit vector from an RDKit Mol."""
     _, AllChem, _ = _require_rdkit()
-    return AllChem.GetMorganFingerprintAsBitVect(
-        mol,
-        radius,
-        nBits=n_bits,
-        useChirality=use_chirality,
-        useFeatures=use_features,
-    )
+    try:
+        # Newer RDKit recommends the generator API to avoid deprecation warnings.
+        from rdkit.Chem import rdFingerprintGenerator  # type: ignore
+
+        gen = rdFingerprintGenerator.GetMorganGenerator(
+            radius=radius,
+            fpSize=n_bits,
+            includeChirality=use_chirality,
+            useFeatures=use_features,
+        )
+        return gen.GetFingerprint(mol)
+    except Exception:
+        return AllChem.GetMorganFingerprintAsBitVect(
+            mol,
+            radius,
+            nBits=n_bits,
+            useChirality=use_chirality,
+            useFeatures=use_features,
+        )
 
 
 def fingerprint_to_numpy(fp) -> np.ndarray:

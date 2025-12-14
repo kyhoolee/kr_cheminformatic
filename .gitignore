@@ -47,6 +47,8 @@ data/
 raw_data/
 processed_data/
 
+_1_patent_detect/m1_poc_data_ingest/outputs
+
 # BigQuery results (như trong tree của bạn)
 bq-results*
 

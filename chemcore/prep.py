@@ -45,10 +45,15 @@ def strip_salts(mol):
     return cleaned if cleaned is not None and cleaned.GetNumAtoms() > 0 else None
 
 
-def canonicalize_mol(mol) -> str:
-    """Return canonical (isomeric) SMILES."""
+def canonicalize_mol(mol, *, raise_on_error: bool = False) -> Optional[str]:
+    """Return canonical (isomeric) SMILES; None if RDKit cannot kekulize/serialize."""
     Chem, _ = _require_rdkit()
-    return Chem.MolToSmiles(mol, canonical=True, isomericSmiles=True)
+    try:
+        return Chem.MolToSmiles(mol, canonical=True, isomericSmiles=True)
+    except Exception as exc:
+        if raise_on_error:
+            raise
+        return None
 
 
 def mol_to_inchikey(mol) -> Optional[str]:
