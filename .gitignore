@@ -8,6 +8,7 @@ env/
 venv/
 .conda/
 .ipynb_checkpoints/
+*.egg-info/
 
 # --- IDE & OS ---
 .vscode/

@@ -26,6 +26,14 @@ The sample ChEMBL dump lives at `_1_patent_detect/m1_data/chembl_36_chemreps.txt
      --compute-inchikey  # optional; source file already has InChIKey
      # --error-report _1_patent_detect/m1_poc_data_ingest/outputs/chembl36_errors.csv  # optional log of failures
    ```
+3. Compute quick top-K similar neighbors (for small subsets):
+   ```bash
+   python -m _1_patent_detect.m1_poc_data_ingest.topk_similar \
+     --input _1_patent_detect/m1_poc_data_ingest/outputs/chembl36_clean.pkl \
+     --output _1_patent_detect/m1_poc_data_ingest/outputs/chembl36_topk.csv \
+     --k 5 \
+     --limit 5000  # optional; keep small because this is O(N^2)
+   ```
 
 Output columns:
 - `chembl_id`
